@@ -1,0 +1,57 @@
+[gd_scene load_steps=2 format=3 uid="uid://byw6ks0weuihr"]
+
+[ext_resource type="Script" path="res://extractor.gd" id="1_h82tt"]
+
+[node name="Extractor" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_h82tt")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="FindNJS" type="Button" parent="VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Load N.js..."
+
+[node name="NJSLocation" type="Label" parent="VBoxContainer/HBoxContainer"]
+layout_mode = 2
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="FindDefaultPak" type="Button" parent="VBoxContainer/HBoxContainer2"]
+layout_mode = 2
+text = "Load default.pak..."
+
+[node name="PakLocation" type="Label" parent="VBoxContainer/HBoxContainer2"]
+layout_mode = 2
+
+[node name="ExportButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 0
+text = "Export Sprites"
+
+[node name="LoggingPanel" type="PanelContainer" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="LoggingLabel" type="RichTextLabel" parent="VBoxContainer/LoggingPanel"]
+layout_mode = 2
+scroll_following = true
+
+[connection signal="pressed" from="VBoxContainer/HBoxContainer/FindNJS" to="." method="_on_find_njs_pressed"]
+[connection signal="pressed" from="VBoxContainer/HBoxContainer2/FindDefaultPak" to="." method="_on_find_default_pak_pressed"]
+[connection signal="pressed" from="VBoxContainer/ExportButton" to="." method="_on_export_button_pressed"]
