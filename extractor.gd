@@ -12,15 +12,11 @@ var seen_sprites: Array = []
 var njs_dialog: FileDialog
 var pak_dialog: FileDialog
 
-#var pak_location: String = "C:/godot/default.pak"
 var njs_location: String
 var pak_location: String
 
 func _ready() -> void:
     DisplayServer.window_set_min_size(Vector2i(580, 230))
-    pass
-    #_on_import("C:/godot/N_beaut.js")
-    #_on_import("D:/workspace/godot/idleon-extract/N_beaut.js")
 
 func _on_find_njs_pressed() -> void:
     njs_dialog = FileDialog.new()
