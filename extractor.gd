@@ -17,6 +17,9 @@ var pak_location: String
 
 func _ready() -> void:
     DisplayServer.window_set_min_size(Vector2i(580, 230))
+    njs_location = "D:/workspace/godot/N.js"
+    pak_location = "D:/workspace/godot/default.pak"
+    extract_sprites()
 
 func _on_find_njs_pressed() -> void:
     njs_dialog = FileDialog.new()
@@ -67,17 +70,24 @@ func extract_sprites() -> void:
 
     await log_textbox("Scanning default.pak for Sprites...")
     var file_dict: Dictionary = {}
+    var all: Array = []
     for listing: Variant in file_listing:
         # We're not using this dictionary, just try parsing everything and collect seen_sprites
         file_dict[listing.id] = listing
         if listing.id.ends_with(".mbs"):
-            parse_mbs(unpack(listing))
+            all.push_back(parse_mbs(unpack(listing)))
     log_textbox(" Done\n")
 
     await log_textbox("Writing Sprite data to idleon-sprite-data.json...")
     var out: FileAccess = FileAccess.open("idleon-sprite-data.json", FileAccess.WRITE)
     out.store_string(JSON.stringify(seen_sprites))
     out.close()
+    log_textbox(" Done\n")
+
+    await log_textbox("Writing all data to idleon-all-data.json...")
+    var out2: FileAccess = FileAccess.open("idleon-all-data.json", FileAccess.WRITE)
+    out2.store_string(JSON.stringify(all))
+    out2.close()
     log_textbox(" Done\n")
 
     # Make sure you move the files out of the godot project if you use this, otherwise it imports all 10k+ files unnecessarily
@@ -95,9 +105,7 @@ func extract_sprites() -> void:
 
 func log_textbox(text: String) -> void:
     $VBoxContainer/LoggingPanel/LoggingLabel.text += text
-    print("Start wait " + str(Time.get_ticks_msec()))
     await get_tree().create_timer(0.1).timeout
-    print("End wait " + str(Time.get_ticks_msec()))
 
 func dump_listing(file_listing: Array) -> void:
     for listing: Variant in file_listing:
@@ -150,6 +158,9 @@ func parse_mbs_inner(stream: StreamPeerBuffer, addr: int, type_code: int) -> Var
             return cur_string_table[string_idx]
 
         4: # LIST
+            if addr == 0:
+                # TODO: Is this correct?
+                return []
             var size: int = stream.get_32()
             var list_type: int = stream.get_32()
             var cur_addr: int = stream.get_position()
@@ -176,6 +187,10 @@ func parse_mbs_inner(stream: StreamPeerBuffer, addr: int, type_code: int) -> Var
                     cur_addr += 8
                 elif list_type == 25:
                     cur_addr += 12
+                elif list_type == 29:
+                    cur_addr += 49
+                elif list_type == 39:
+                    cur_addr += 28
                 elif list_type == 41:
                     cur_addr += 8
                 elif list_type == 47:
@@ -186,6 +201,8 @@ func parse_mbs_inner(stream: StreamPeerBuffer, addr: int, type_code: int) -> Var
                     cur_addr += 12
                 elif list_type == 50:
                     cur_addr += 18
+                elif list_type == 51:
+                    cur_addr += 9
                 elif list_type == 52:
                     cur_addr += 16
                 elif list_type == 53:
@@ -201,7 +218,25 @@ func parse_mbs_inner(stream: StreamPeerBuffer, addr: int, type_code: int) -> Var
             return null
 
         11: #MBS_BACKGROUND
-            return null
+            var result: Dictionary = {}
+            result.actorID = stream.get_32()
+            result.description = cur_string_table[stream.get_32()]
+            result.id = stream.get_32()
+            result.name = cur_string_table[stream.get_32()]
+            result.readableImages = stream.get_8() != 0
+            var durations_addr: int = stream.get_32()
+            result.height = stream.get_32()
+            result.numFrames = stream.get_32()
+            result.repeats = stream.get_8() != 0
+            result.resized = stream.get_8() != 0
+            result.width = stream.get_32()
+            result.xParallaxFactor = stream.get_float()
+            result.xVelocity = stream.get_float()
+            result.yParallaxFactor = stream.get_float()
+            result.yVelocity = stream.get_float()
+
+            result.durations = parse_mbs_inner(stream, durations_addr, 4)
+            return result
 
         12: #MBS_CUSTOM_BLOCK
             var result: Dictionary = {}
@@ -229,7 +264,18 @@ func parse_mbs_inner(stream: StreamPeerBuffer, addr: int, type_code: int) -> Var
             return result
 
         14: #MBS_FONT
-            return null
+            var result: Dictionary = {}
+            result.actorID = stream.get_32()
+            result.description = cur_string_table[stream.get_32()]
+            result.id = stream.get_32()
+            result.name = cur_string_table[stream.get_32()]
+            result.alphabet = cur_string_table[stream.get_32()]
+            result.readableImages = stream.get_8() != 0
+            result.height = stream.get_32()
+            result.offsets = cur_string_table[stream.get_32()]
+            result.prerendered = stream.get_8() != 0
+            result.rowHeight = stream.get_32()
+            return result
 
         15: #MBS_MUSIC
             var result: Dictionary = {}
@@ -245,7 +291,32 @@ func parse_mbs_inner(stream: StreamPeerBuffer, addr: int, type_code: int) -> Var
             return result
 
         16: #MBS_ACTOR_TYPE
-            return null
+            var result: Dictionary = {}
+            result.actorID = stream.get_32()
+            result.description = cur_string_table[stream.get_32()]
+            result.id = stream.get_32()
+            result.name = cur_string_table[stream.get_32()]
+            result.angularDamping = stream.get_float()
+            result.autoScale = stream.get_8() != 0
+            result.bodyType = stream.get_32()
+            result.continuous = stream.get_8() != 0
+            result.eventSnippetID = stream.get_32()
+            result.fixedRotation = stream.get_8() != 0
+            result.friction = stream.get_float()
+            result.groupID = stream.get_32()
+            result.ignoreGravity = stream.get_8() != 0
+            result.inertia = stream.get_float()
+            result.linearDamping = stream.get_float()
+            result.mass = stream.get_float()
+            result.pausable = stream.get_8() != 0
+            result.physicsMode = stream.get_32()
+            result.restitution = stream.get_float()
+            result.sprite = stream.get_32()
+            result.isStatic = stream.get_8() != 0
+            var snippets_addr: int = stream.get_32()
+
+            result.snippets = parse_mbs_inner(stream, snippets_addr, 4)
+            return result
 
         17: #MBS_SPRITE
             var result: Dictionary = {}
@@ -337,10 +408,120 @@ func parse_mbs_inner(stream: StreamPeerBuffer, addr: int, type_code: int) -> Var
             return result
 
         25: #MBS_SCENE_HEADER
-            return null
+            var result: Dictionary = {}
+            result.id = stream.get_32()
+            result.name = cur_string_table[stream.get_32()]
+            result.description = cur_string_table[stream.get_32()]
+            return result
 
         28: #MBS_SCENE
-            return null
+            var result: Dictionary = {}
+            result.retainAtlases = stream.get_8() != 0
+            result.depth = stream.get_32()
+            result.description = cur_string_table[stream.get_32()]
+            result.eventSnippetID = stream.get_32()
+            result.extendedHeight = stream.get_32()
+            result.extendedWidth = stream.get_32()
+            result.extendedX = stream.get_32()
+            result.extendedY = stream.get_32()
+            result.format = cur_string_table[stream.get_32()]
+            result.gravityX = stream.get_float()
+            result.gravityY = stream.get_float()
+            result.height = stream.get_32()
+            result.id = stream.get_32()
+            result.name = cur_string_table[stream.get_32()]
+            result.revision = cur_string_table[stream.get_32()]
+            result.savecount = stream.get_32()
+            result.tileDepth = stream.get_32()
+            result.tileHeight = stream.get_32()
+            result.tileWidth = stream.get_32()
+            result.type = cur_string_table[stream.get_32()]
+            result.width = stream.get_32()
+            var actorInstances_addr: int = stream.get_32()
+            var atlasMembers_addr: int = stream.get_32()
+            var layers_addr: int = stream.get_32()
+            var regions_addr: int = stream.get_32()
+            var snippets_addr: int = stream.get_32()
+            var terrain_addr: int = stream.get_32()
+            var terrainRegions_addr: int = stream.get_32()
+
+            result.actorInstances = parse_mbs_inner(stream, actorInstances_addr, 4)
+            result.atlasMembers = parse_mbs_inner(stream, atlasMembers_addr, 4)
+            result.layers = parse_mbs_inner(stream, layers_addr, 4)
+            result.regions = parse_mbs_inner(stream, regions_addr, 4)
+            result.snippets = parse_mbs_inner(stream, snippets_addr, 4)
+            result.terrain = parse_mbs_inner(stream, terrain_addr, 4)
+            result.terrainRegions = parse_mbs_inner(stream, terrainRegions_addr, 4)
+            return result
+
+        29: #MBS_ACTOR_INSTANCE
+            var result: Dictionary = {}
+            result.angle = stream.get_float()
+            result.aid = stream.get_32()
+            result.customized = stream.get_8() != 0
+            result.groupID = stream.get_32()
+            result.id = stream.get_32()
+            result.name = cur_string_table[stream.get_32()]
+            result.scaleX = stream.get_float()
+            result.scaleY = stream.get_float()
+            result.x = stream.get_32()
+            result.y = stream.get_32()
+            result.z = stream.get_32()
+            result.orderInLayer = stream.get_32()
+            var snippets_addr: int = stream.get_32()
+
+            result.snippets = parse_mbs_inner(stream, snippets_addr, 4)
+            return result
+
+        30: #MBS_COLOR_BACKGROUND
+            var result: Dictionary = {}
+            result.color = stream.get_32()
+            return result
+
+        31: #MBS_GRADIENT_BACKGROUND
+            var result: Dictionary = {}
+            result.color1 = stream.get_32()
+            result.color2 = stream.get_32()
+            return result
+
+        33: #MBS_INTERACTIVE_LAYER
+            var result: Dictionary = {}
+            result.id = stream.get_32()
+            result.name = cur_string_table[stream.get_32()]
+            result.order = stream.get_32()
+            result.opacity = stream.get_32()
+            result.blendmode = cur_string_table[stream.get_32()]
+            result.scrollFactorX = stream.get_float()
+            result.scrollFactorY = stream.get_float()
+            result.visible = stream.get_8() != 0
+            result.locked = stream.get_8() != 0
+            result.color = stream.get_32()
+            return result
+
+        34: #MBS_IMAGE_BACKGROUND
+            var result: Dictionary = {}
+            result.id = stream.get_32()
+            result.name = cur_string_table[stream.get_32()]
+            result.order = stream.get_32()
+            result.opacity = stream.get_32()
+            result.blendmode = cur_string_table[stream.get_32()]
+            result.scrollFactorX = stream.get_float()
+            result.scrollFactorY = stream.get_float()
+            result.visible = stream.get_8() != 0
+            result.locked = stream.get_8() != 0
+            result.resourceID = stream.get_32()
+            result.customScroll = stream.get_8() != 0
+            return result
+
+        39: #MBS_REGION
+            var result: Dictionary = {}
+            result.color = stream.get_32()
+            result.id = stream.get_32()
+            result.name = cur_string_table[stream.get_32()]
+            result.shape = parse_mbs_dynamic(stream)
+            result.x = stream.get_32()
+            result.y = stream.get_32()
+            return result
 
         41: #MBS_POINT
             var result: Dictionary = {}
@@ -351,6 +532,15 @@ func parse_mbs_inner(stream: StreamPeerBuffer, addr: int, type_code: int) -> Var
         44: #MBS_POLYGON
             var result: Dictionary = {}
             var points_addr: int = stream.get_32()
+            result.points = parse_mbs_inner(stream, points_addr, 4)
+            return result
+
+        45: #MBS_POLY_REGION
+            var result: Dictionary = {}
+            var points_addr: int = stream.get_32()
+            result.width = stream.get_32()
+            result.height = stream.get_32()
+
             result.points = parse_mbs_inner(stream, points_addr, 4)
             return result
 
@@ -404,6 +594,15 @@ func parse_mbs_inner(stream: StreamPeerBuffer, addr: int, type_code: int) -> Var
             result.name = cur_string_table[stream.get_32()]
             result.order = stream.get_32()
             result.repeats = stream.get_8() != 0
+            return result
+
+        51: #MBS_SNIPPET
+            var result: Dictionary = {}
+            result.enabled = stream.get_8() != 0
+            result.id = stream.get_32()
+            var properties_addr: int = stream.get_32()
+
+            result.properties = parse_mbs_inner(stream, properties_addr, 4)
             return result
 
         52: #MBS_ATTRIBUTE
